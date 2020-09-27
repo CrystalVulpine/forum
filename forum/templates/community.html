@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>{{ c.title }} | CrystalVulpine's forum</title>
+	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
+	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+</head>
+
+<body>
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
+	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
+	<div class="header">
+		<a href="/">Home</a>
+		<div class="header-right">
+			{% if v %}
+				<a href="/user/{{ v.username }}">{{ v.username }}</a>
+				<a href="javascript:void(0)" onclick="$.post('/api/logout', ()=>{window.location.reload(true)})">Log out</a>
+			{% else %}
+				<a href="/login">Sign up or Log in</a>
+			{% endif %}
+		</div>
+	</div>
+	<div class="banner" style="background: url({{ c.banner_url }})">
+	</div>
+	<div class="side">
+		<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+		{% if not user_banned %}
+			{% if c.locked and not (v and v.admin >= 1) %}
+				<p class="submit-button-disabled">Posts banned</p>
+				<small>This community has been banned: {{ c.ban_message if c.ban_message else 'This community has been banned for breaking the rules.' }}</small>
+			{% elif c.mode == "public" or user_mod or (user_contributor and c.mode != "archived") or (v and v.admin >= 1) %}
+				<a class="submit-button" href="{{ '/c/' + c.name + '/submit/' if v else '/login/' }}">Submit a post</a>
+			{% elif c.mode == "archived" %}
+				<p class="submit-button-disabled">New posts disabled</p>
+				<small>This community is now archived and read-only.</small>
+			{% else %}
+				<p class="submit-button-disabled">Posts restricted</p>
+				<small>Posts in this community are restricted to approved users.</small>
+			{% endif %}
+		{% endif %}
+	</div>
+	<div class="content">
+		<h3><a href="/c/{{ c.name }}/">{{ c.name }}</a>{{ ': ' + c.title if c.title and c.title != '' else '' }}</h3>
+		{% set posts = c.posts.filter_by().limit(1024) %}
+		{% for post in posts %}
+			{% set p = post.post %}
+		    {% if not p.deleted and p.can_view(v) and (not post.removed or (v and v.id == p.author_id)) %}
+		    	{% set communities = p.posted_in(v) %}
+				<div class="post">
+					<h5><a href="/c/{{ c.name }}/post/{{ p.id }}/">{{ p.title }}</a></h5>
+					<small>Posted by <a href="/user/{{ p.author.username }}/">{{ p.author.username }}</a> <time class="timestamp" title="{{ p.created_datetime.strftime("%a %b %-d %Y at %H:%M:%S UTC") }}" datetime="{{ p.created_datetime.strftime("%d %b %Y %H:%M:%S UTC") }}">{{ p.created_ago }}</time></small><br>
+					{% if communities|length > 0 %}
+						<small>Posted in: 
+						{% for com in communities %}
+							<a href="/c/{{ com.community.name }}/post/{{ p.id }}/">{{ com.community.name }}</a> 
+						{% endfor %}
+						</small>
+					{% endif %}
+				</div>
+			{% endif %}
+		{% endfor %}
+	</div>
+</body>

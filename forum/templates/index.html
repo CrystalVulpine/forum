@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>CrystalVulpine's forum</title>
+	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
+	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+</head>
+
+<body>
+	<div class="header">
+		<a href="/">Home</a>
+		<div class="header-right">
+			{% if v %}
+				<a href="/user/{{ v.username }}">{{ v.username }}</a>
+				<a href="javascript:void(0)" onclick="$.post('/api/logout', ()=>{window.location.reload(true)})">Log out</a>
+			{% else %}
+				<a href="/login">Sign up or Log in</a>
+			{% endif %}
+		</div>
+	</div>
+	<div class="side">
+		<div class="md">{{ sidebar_text|markdown }}</div>
+		{% if not (v and v.banned) %}
+			<a class="submit-button" href="{{ '/submit/' if v else '/login/' }}">Submit a post</a>
+		{% endif %}
+	</div>
+	<div class="content">
+		<form id="search" action="search">
+			<input type="text" name="search" placeholder="Search posts" class="search-bar">
+		</form>
+		{% for p in posts %}
+		    {% if not p.deleted and p.can_view(v) %}
+				<div class="post">
+					{% set communities = p.posted_in(v) %}
+					<h4><a href="{{ '/c/' + communities[0].community.name if communities|length > 0 else '' }}/post/{{ p.id }}/">{{ p.title }}</a></h4>
+					<small>Posted by <a href="/user/{{ p.author.username }}/">{{ p.author.username }}</a> <time class="timestamp" title="{{ p.created_datetime.strftime("%a %b %-d %Y at %H:%M:%S UTC") }}" datetime="{{ p.created_datetime.strftime("%d %b %Y %H:%M:%S UTC") }}">{{ p.created_ago }}</time></small><br>
+					{% if communities|length > 0 %}
+						<small>Posted in: 
+						{% for com in communities %}
+							<a href="/c/{{ com.community.name }}/post/{{ p.id }}/">{{ com.community.name }}</a> 
+						{% endfor %}
+						</small>
+					{% endif %}
+				</div>
+			{% endif %}
+		{% endfor %}
+	</div>
+</body>

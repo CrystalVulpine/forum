@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>{{ user.username }}'s overview | CrystalVulpine's forum</title>
+	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
+	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+</head>
+
+<body>
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
+	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
+	<div class="header">
+		<a href="/">Home</a>
+		<div class="header-right">
+			{% if v %}
+				<a href="/user/{{ v.username }}">{{ v.username }}</a>
+				<a href="javascript:void(0)" onclick="$.post('/api/logout', ()=>{window.location.reload(true)})">Log out</a>
+			{% else %}
+				<a href="/login">Sign up or Log in</a>
+			{% endif %}
+		</div>
+	</div>
+		<div class="banner" style="background: url({{ c.banner_url }})"></div>
+	</div>
+	<div class="side">
+		<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+		{% if not user_banned %}
+			{% if c.locked and not (v and v.admin >= 1) %}
+				<p class="submit-button-disabled">Posts banned</p>
+				<small>This community has been banned: {{ c.ban_message if c.ban_message else 'This community has been banned for breaking the rules.' }}</small>
+			{% elif c.mode == "public" or user_mod or (user_contributor and c.mode != "archived") or (v and v.admin >= 1) %}
+				<a class="submit-button" href="{{ '/user/' + user.username + '/submit/' if v else '/login/' }}">Submit a post</a>
+			{% endif %}
+		{% endif %}
+	</div>
+	<div class="content">
+		<h3>{{ user.username }}</h3>
+		{% set posts = user.posts.filter_by(deleted=False, admin_nuked=False).limit(1024) %}
+		{% for p in posts %}
+		    {% if not p.deleted and p.can_view(v) %}
+				<div class="post">
+					{% set communities = p.posted_in(v) %}
+					<h4><a href="{{ '/c/' + communities[0].community.name if communities|length > 0 else '' }}/post/{{ p.id }}/">{{ p.title }}</a></h4>
+					<small>Posted by <a href="/user/{{ p.author.username }}/">{{ p.author.username }}</a> <time class="timestamp" title="{{ p.created_datetime.strftime("%a %b %-d %Y at %H:%M:%S UTC") }}" datetime="{{ p.created_datetime.strftime("%d %b %Y %H:%M:%S UTC") }}">{{ p.created_ago }}</time></small><br>
+					{% if communities|length > 0 %}
+						<small>Posted in: 
+						{% for com in communities %}
+							<a href="/c/{{ com.community.name }}/post/{{ p.id }}/">{{ com.community.name }}</a> 
+						{% endfor %}
+						</small>
+					{% endif %}
+				</div>
+			{% endif %}
+		{% endfor %}
+		{% set comments = user.comments.filter_by(deleted=False).limit(1024) %}
+		{% for comment in comments %}
+		    {% if not comment.deleted and comment.can_view(v) %}
+				<div class="comment">
+					{% set communities = comment.post.posted_in(v) %}
+					<h4><a href="{{ '/c/' + communities[0].community.name if communities|length > 0 else '' }}/post/{{ comment.post_id }}/comment/{{ comment.id }}">{{ comment.post.title }}</a></h4>
+					<small>Posted by <a href="/user/{{ comment.author.username }}/">{{ comment.author.username }}</a> <time class="timestamp" title="{{ comment.created_datetime.strftime("%a %b %-d %Y at %H:%M:%S UTC") }}" datetime="{{ comment.created_datetime.strftime("%d %b %Y %H:%M:%S UTC") }}">{{ comment.created_ago }}</time></small><br>
+					<div class="md">{{ comment.body|markdown }}</div>
+					<small><a class="reply-button" id="reply-{{ comment.id }}" 
+					{% if not v %}
+						href="/login/"
+					{% else %}
+						href="javascript:void(0)" onclick="document.getElementById('comment-{{ comment.id }}').style = ''"
+					{% endif %}
+					>reply</a></small>
+					<form id="comment-{{ comment.id }}" action="/api/comment" method="post" style="display: none!important">
+						<textarea type="text" name="body" placeholder="Comment" class="search-bar" maxlength="10000"></textarea>
+						<input type="hidden" name="post" value="{{ comment.post.id }}">
+						<input type="hidden" name="parent" value="{{ comment.id }}">
+						<input type="hidden" name="community" value="0">
+						<a onclick="document.getElementById('comment-{{ comment.id }}').submit()" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Submit</a>
+						<a onclick="document.getElementById('comment-{{ comment.id }}').style = 'display: none!important'" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Cancel</a>
+					</form>
+				</div>
+			{% endif %}
+		{% endfor %}
+	</div>
+</body>

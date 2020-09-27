@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>{{ p.title }} | CrystalVulpine's forum</title>
+	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
+	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+	<script src='{{ url_for('static', filename='main.js') }}'></script>
+</head>
+
+<body>
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
+	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
+	<div class="header">
+		<a href="/">Home</a>
+		<div class="header-right">
+			{% if v %}
+				<a href="/user/{{ v.username }}">{{ v.username }}</a>
+				<a href="javascript:void(0)" onclick="$.post('/api/logout', ()=>{window.location.reload(true)})">Log out</a>
+			{% else %}
+				<a href="/login">Sign up or Log in</a>
+			{% endif %}
+		</div>
+	</div>
+	{% if c %}
+		<div class="banner" style="background: url({{ c.banner_url }})">
+		</div>
+	{% endif %}
+	<div class="side">
+		{% if c %}
+			<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+		{% endif %}
+		{% if not user_banned %}
+			{% if not c %}
+				<a class="submit-button" href="{{ '/submit' if v else '/login/' }}">Submit a post</a>
+			{% elif c.locked and not (v and v.admin >= 1) %}
+				<p class="submit-button-disabled">Posts banned</p>
+				<small>This community has been banned: {{ c.ban_message if c.ban_message else 'This community has been banned for breaking the rules.' }}</small>
+			{% elif c.mode == "public" or user_mod or (user_contributor and c.mode != "archived") or (v and v.admin >= 1) %}
+				<a class="submit-button" href="{{ '/c/' + c.name + '/submit/' if v else '/login/' }}">Submit a post</a>
+			{% elif c.mode == "archived" %}
+				<p class="submit-button-disabled">New posts disabled</p>
+				<small>This community is now archived and read-only.</small>
+			{% else %}
+				<p class="submit-button-disabled">Posts restricted</p>
+				<small>Posts in this community are restricted to approved users.</small>
+			{% endif %}
+		{% endif %}
+	</div>
+	<div class="content">
+		{% if c %}
+			<h3><a href="/c/{{ c.name }}/">{{ c.name }}</a>{{ ': ' + c.title if c.title and c.title != '' else '' }}</h3>
+		{% endif %}
+		<div class="post">
+			{% set communities = p.posted_in(v) %}
+			<h5><a href="{{('/c/' + c.name if c else '') + '/post/' + p.id|string + '/' if not p.url or p.url == '' else p.url}}">{{ p.title }}</a></h5>
+			<small>Posted by 
+			{% if p.deleted %}
+				<b>[Deleted user]</b>
+			{% else %}
+				<a href="/user/{{ p.author.username }}/">{{ p.author.username }}</a>
+			{% endif %}
+			<time class="timestamp" title="{{ p.created_datetime.strftime("%a %b %-d %Y at %H:%M:%S UTC") }}" datetime="{{ p.created_datetime.strftime("%d %b %Y %H:%M:%S UTC") }}">{{ p.created_ago }}</time>
+			</small>
+			
+			{% if communities|length > 0 %}
+				<br><small>Posted in: 
+				{% for com in communities %}
+					<a href="/c/{{ com.community.name }}/post/{{ p.id }}/">{{ com.community.name }}</a> 
+				{% endfor %}
+				</small>
+			{% endif %}
+			<br><div class="body">
+				{% if cp and cp.removed %}
+					<em style="background-color: gray">[removed]</em>
+				{% else %}
+					<div class="md">{{ p.body|markdown if p.body else '' }}</div>
+				{% endif %}
+			</div>
+		</div>
+		{% macro render_comment(comment) -%}
+			{% set ccomment = None if not c else comment.communities.filter_by(community_id = c.id).first() %}
+			{% if ((not ccomment or not ccomment.removed or (v and v.id == comment.author_id)) and not comment.deleted) or comment.children|length > 0 %}
+				<div class="comment" id="{{ comment.id }}">
+					<small>Posted by 
+					{% if comment.deleted %}
+						<b>[Deleted user]</b>
+					{% else %}
+						<a href="/user/{{ comment.author.username }}/">{{ comment.author.username }}</a>
+					{% endif %}
+					<time class="timestamp" title="{{ comment.created_datetime.strftime("%a %b %-d %Y at %H:%M:%S UTC") }}" datetime="{{ comment.created_datetime.strftime("%d %b %Y %H:%M:%S UTC") }}">{{ comment.created_ago }}</time>
+					</small>
+					{% if ccomment and ccomment.removed and not (v and v.id == comment.author_id)  %}
+						<em style="background-color: gray">[removed]</em>
+					{% else %}
+						<div class="md">{{ comment.body|markdown if comment.body else '' }}</div>
+					{% endif %}
+					{% if not c or c.can_comment(v) %}
+						<small><a class="reply-button" id="reply-{{ comment.id }}" 
+						{% if not v %}
+							href="/login/"
+						{% else %}
+							href="javascript:void(0)" onclick="document.getElementById('comment-{{ comment.id }}').style = ''"
+						{% endif %}
+						>reply</a></small>
+						<form id="comment-{{ comment.id }}" action="/api/comment" method="post" style="display: none!important">
+							<textarea type="text" name="body" placeholder="Comment" class="search-bar" maxlength="10000"></textarea>
+							<input type="hidden" name="post" value="{{ p.id }}">
+							<input type="hidden" name="parent" value="{{ comment.id }}">
+							<input type="hidden" name="community" value="{{ c.id if c else 0 }}">
+							<a onclick="document.getElementById('comment-{{ comment.id }}').submit()" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Submit</a>
+							<a onclick="document.getElementById('comment-{{ comment.id }}').style = 'display: none!important'" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Cancel</a>
+						</form>
+					{% endif %}
+					{% for child in comment.children %}
+						{{ render_comment(child) }}
+					{% endfor %}
+				</div>
+			{% endif %}
+		{%- endmacro %}
+		
+		{% if not c or c.can_comment(v) %}
+			<form id="comment-0" action="/api/comment" method="post">
+				<textarea type="text" name="body" placeholder="Comment" class="search-bar" maxlength="10000"></textarea>
+				<input type="hidden" name="post" value="{{ p.id }}">
+				<input type="hidden" name="parent" value="0">
+				<input type="hidden" name="community" value="{{ c.id if c else 0 }}">
+				<a 
+				{% if not v %}
+					href="/login/"
+				{% else %}
+					onclick="document.getElementById('comment-0').submit()" href="javascript:void(0)"
+				{% endif %}
+				 class="submit-button" style="margin-right:-15px">Submit</a>
+			</form>
+		{% endif %}
+		{% for comment in p.comments.filter_by(parent_id = 0).all() %}
+			{{ render_comment(comment) }}
+		{% endfor %}
+	</div>
+</body>

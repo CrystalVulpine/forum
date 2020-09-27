@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>Submit | CrystalVulpine's forum</title>
+	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
+	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+</head>
+
+<body>
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
+	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
+	<div class="header">
+		<a href="/">Home</a>
+		<div class="header-right">
+			{% if v %}
+				<a href="/user/{{ v.username }}">{{ v.username }}</a>
+				<a href="javascript:void(0)" onclick="$.post('/api/logout', ()=>{window.location.reload(true)})">Log out</a>
+			{% else %}
+				<a href="/login">Sign up or Log in</a>
+			{% endif %}
+		</div>
+	</div>
+	<div class="side">
+		{% if c %}
+			<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+		{% endif %}
+		{% if not user_banned %}
+			{% if not c %}
+				<a class="submit-button" href="{{ '/submit' if v else '/login/' }}">Submit a post</a>
+			{% elif c.locked and not (v and v.admin >= 1) %}
+				<p class="submit-button-disabled">Posts banned</p>
+				<small>This community has been banned: {{ c.ban_message if c.ban_message else 'This community has been banned for breaking the rules.' }}</small>
+			{% elif c.mode == "public" or user_mod or (user_contributor and c.mode != "archived") or (v and v.admin >= 1) %}
+				<a class="submit-button" href="{{ '/c/' + c.name + '/submit/' if v else '/login/' }}">Submit a post</a>
+			{% elif c.mode == "archived" %}
+				<p class="submit-button-disabled">New posts disabled</p>
+				<small>This community is now archived and read-only.</small>
+			{% else %}
+				<p class="submit-button-disabled">Posts restricted</p>
+				<small>Posts in this community are restricted to approved users.</small>
+			{% endif %}
+		{% endif %}
+	</div>
+	{% if c %}
+		<div class="banner" style="background: url({{ c.banner_url }})">
+		</div>
+	{% endif %}
+	<div class="content">
+		<form id="submit" action="/api/submit" method="post">
+			<input type="text" name="title" placeholder="Title" class="search-bar" minlength="1" maxlength="500" required>
+			<input type="text" name="url" placeholder="URL" class="search-bar" maxlength="2000">
+			<textarea type="text" name="body" placeholder="Body" class="search-bar" maxlength="10000"></textarea>
+			<input type="text" name="communities" placeholder="Communities to post in (separate by space)" class="search-bar"{{' value=' + c.name if c else ''}}>
+			{% if "CANT_SUBMIT" in get_flashed_messages() %}
+				<p style="color:red">You can't submit in one or more of these communities. You may be banned or not have access. Remove them and try again.</p>
+			{% elif "CANT_SUBMIT_PRIVATE" in get_flashed_messages() %}
+				<p style="color:red">You can't submit to multiple communities when posting in a private one.</p>
+			{% endif %}
+			<a onclick="document.getElementById('submit').submit()" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Submit</a>
+		</form>
+	</div>
+</body>
