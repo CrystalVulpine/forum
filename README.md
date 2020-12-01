@@ -2,4 +2,4 @@ This is a reddit/ruqqus style forum, but with the added perk that you can submit
 
 ## Setup
 
-This app runs on python3. In addition, flask, flask-markdown, bcrypt, and sqlalchemy must be installed. Running it is simple, just set `PYTHONPATH` to the root repo directory and run `python3 forum/__main__.py`. You should then be able to access the home page from your web browser with http://127.0.0.1:5000.
+This app runs on python3. In addition, flask, Flask-Markdown, bcrypt, and flask_sqlalchemy must be installed. Running it is simple, just set `PYTHONPATH` to the root repo directory (where the README file is, not the .py files) and run `python3 forum/__main__.py`. You should then be able to access the home page from your web browser with http://127.0.0.1:5000.
