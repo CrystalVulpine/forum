@@ -16,7 +16,7 @@ def login_required(f):
     def wrapper(*args, **kwargs):
         v = kwargs.get('v')
         if not v:
-            return redirect(url_for('render_login', redirect=request.url_rule))
+            return redirect(url_for('render_login', redirect=request.path))
         resp = make_response(f(*args, **kwargs))
         return resp
 
