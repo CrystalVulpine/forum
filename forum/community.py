@@ -10,7 +10,7 @@ class Community(db.Model):
     name = Column(String, default=None)
     title = Column(String, default=None)
     deleted = Column(Boolean, default=False)
-    is_banned = Column(Boolean, default=False)
+    banned = Column(Boolean, default=False)
     ban_message = Column(String, default=None)
     banned_at = Column(Integer, default=0)
     locked = Column(Boolean, default=False)
@@ -27,7 +27,7 @@ class Community(db.Model):
     comments=relationship("CommunityComment", lazy="dynamic", backref="community")
 
     mods=relationship("Moderator", lazy="dynamic", backref="community")
-    banned=relationship("Ban", lazy="dynamic", backref="community")
+    bans=relationship("Ban", lazy="dynamic", backref="community")
     contributors=relationship("Contributor", lazy="dynamic", backref="community")
     subscribers=relationship("Subscription", lazy="dynamic", backref="community")
 
@@ -46,7 +46,7 @@ class Community(db.Model):
     def can_view(self, user):
         if user and user.admin >= 1:
             return True
-        if self.is_banned:
+        if self.banned:
             return False
         if self.mode == "private" and (not user or (not self.contributors.filter_by(user_id = user.id).first() and not self.mods.filter_by(user_id = user.id).first())):
             return False
@@ -55,9 +55,9 @@ class Community(db.Model):
     def can_submit(self, user):
         if user and user.admin >= 1:
             return True
-        if self.is_banned or self.locked:
+        if self.banned or self.locked:
             return False
-        if user and (user.banned or self.banned.filter_by(user_id = user.id).first()):
+        if user and (user.banned or self.bans.filter_by(user_id = user.id).first()):
             return False
         if not user or not self.mods.filter_by(user_id = user.id).first():
             if self.mode == "archived":
@@ -69,9 +69,9 @@ class Community(db.Model):
     def can_comment(self, user):
         if user and user.admin >= 1:
             return True
-        if self.is_banned or self.locked:
+        if self.banned or self.locked:
             return False
-        if user and (user.banned or self.banned.filter_by(user_id = user.id).first()):
+        if user and (user.banned or self.bans.filter_by(user_id = user.id).first()):
             return False
         if not user or not self.mods.filter_by(user_id = user.id).first():
             if self.mode == "archived":

@@ -4,6 +4,8 @@
 	<meta charset="utf-8"/>
 	<title>Log in | CrystalVulpine's forum</title>
 	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
+	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+	<script src='{{ url_for('static', filename='main.js') }}'></script>
 </head>
 
 <body>
@@ -29,14 +31,13 @@
 					<p style="color:red">Invalid username</p>
 				{% elif "REGISTER_USERNAME_TAKEN" in get_flashed_messages() %}
 					<p style="color:red">That username is already taken</p>
-				{% elif "REGISTER_PASSWORDS_DONT_MATCH" in get_flashed_messages() %}
-					<p style="color:red">Passwords do not match</p>
 				{% endif %}
-				<a onclick="document.getElementById('register').submit()" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Sign up</a>
+				<p style="color:red;display:none" id="passwords-mismatch">Passwords do not match</p>
+				<a onclick="signupButton(document.getElementById('register'))" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Sign up</a>
 			</form>
 		</div>
 		<div style="width:300px">
-			<form id="login" action="/api/login" method="post">
+			<form id="login" action="/api/login{{ '?redirect=' + redirect if redirect else '' }}" method="post">
 				<input type="text" name="username" placeholder="Username" class="search-bar" minlength="1" maxlength="25" required>
 				<input type="text" name="password" placeholder="Password" class="search-bar" required>
 				{% if "LOGIN_INVALID_USERNAME" in get_flashed_messages() %}

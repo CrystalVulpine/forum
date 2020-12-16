@@ -5,10 +5,11 @@
 	<title>{{ c.title }} | CrystalVulpine's forum</title>
 	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
 	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+	<script src='{{ url_for('static', filename='main.js') }}'></script>
 </head>
 
 <body>
-	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.bans.filter_by(user_id = v.id).first()) %}
 	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
 	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
 	<div class="header">
@@ -25,7 +26,7 @@
 	<div class="banner" style="background: url({{ c.banner_url }})">
 	</div>
 	<div class="side">
-		<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+		<div class="md">{{ c.sidebar|markdown if c.sidebar else '' }}</div>
 		{% if not user_banned %}
 			{% if c.locked and not (v and v.admin >= 1) %}
 				<p class="submit-button-disabled">Posts banned</p>

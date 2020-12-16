@@ -5,10 +5,11 @@
 	<title>{{'Editing ' + c.name if c else 'Create community'}} | CrystalVulpine's forum</title>
 	<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='main.css') }}'/>
 	<script src='{{ url_for('static', filename='jquery.min.js') }}'></script>
+	<script src='{{ url_for('static', filename='main.js') }}'></script>
 </head>
 
 <body>
-	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.bans.filter_by(user_id = v.id).first()) %}
 	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
 	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
 	<div class="header">
@@ -24,7 +25,7 @@
 	</div>
 	<div class="side">
 		{% if c %}
-			<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+			<div class="md">{{ c.sidebar|markdown if c.sidebar else '' }}</div>
 		{% endif %}
 		{% if not user_banned %}
 			{% if not c %}
@@ -44,16 +45,14 @@
 		{% endif %}
 	</div>
 	<div class="content">
-		<form id="community" action="/api/edit_community" method="post">
+		<form id="community" action="/api/{{ 'c/' + c.name + '/edit' if c else 'create_community' }}" method="post">
 			{% if not c %}
 				<input type="text" name="name" placeholder="Name" class="search-bar" minlength="1" maxlength="25" required>
 				{% if "CNAME_NOT_VALID" in get_flashed_messages() %}
 					<p style="color:red">Invalid name</p>
 				{% endif %}
-			{% else %}
-				<input type="hidden" name="name" value="{{ c.name }}">
 			{% endif %}
-			<input type="text" name="title" placeholder="Title" class="search-bar" minlength="1" maxlength="50" value="{{ c.title if c and c.title else '' }}" required>
+			<input type="text" name="title" placeholder="Title" class="search-bar" minlength="1" maxlength="50" value="{{ c.title if c and c.title else '' }}">
 			<textarea type="text" name="description" placeholder="Description" class="search-bar" minlength="1" maxlength="500">{{ c.description if c and c.description else '' }}</textarea>
 			<textarea type="text" name="sidebar" placeholder="Sidebar" class="search-bar" minlength="1" maxlength="10000">{{ c.sidebar if c and c.sidebar else '' }}</textarea>
 			<select name="mode">

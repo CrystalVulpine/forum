@@ -9,7 +9,7 @@
 </head>
 
 <body>
-	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.banned.filter_by(user_id = v.id).first()) %}
+	{% set user_banned = v and c and v.admin < 1 and (v.banned or c.bans.filter_by(user_id = v.id).first()) %}
 	{% set user_contributor = v and c and c.contributors.filter_by(user_id = v.id).first() %}
 	{% set user_mod = v and c and c.mods.filter_by(user_id = v.id).first() %}
 	<div class="header">
@@ -29,7 +29,7 @@
 	{% endif %}
 	<div class="side">
 		{% if c %}
-			<div class="md">{{ c.sidebar|markdown if c.sidebar and c.sidebar != '' else c.description|markdown if c.description else '' }}</div>
+			<div class="md">{{ c.sidebar|markdown if c.sidebar else '' }}</div>
 		{% endif %}
 		{% if not user_banned %}
 			{% if not c %}
