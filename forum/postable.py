@@ -34,7 +34,7 @@ class Postable(object):
 
     def delete(self):
         self.deleted = True
-        self.body = '[deleted]'
+        self.body = ''
         self.author_id = 0
         db.session.commit()
 
@@ -62,5 +62,16 @@ class Postable(object):
             if not cp.community.can_view(user):
                 continue            
             returns.append(cp)
+        return returns
+
+    def reply_communities(self, user):
+        cps = self.communities.all()
+        returns = []
+        for cp in cps:
+            if cp.removed and self.author.id != user.id:
+                continue
+            if not cp.community.can_comment(user):
+                continue
+            returns.append(cp.community.name)
         return returns
 

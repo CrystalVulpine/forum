@@ -22,7 +22,7 @@ class Post(postable.Postable, db.Model):
         db.Model.__init__(self, **kwargs)
 
     def delete(self):
-        self.title = '[Deleted post]'
+        self.title = ''
         self.url = ''
         Postable.delete(self)
 

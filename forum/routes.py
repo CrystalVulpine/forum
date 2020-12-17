@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship, deferred, joinedload, lazyload, contains_eager
 from flaskext.markdown import Markdown
 import re
+import os
 
 from forum.user import *
 from forum.community import *
@@ -140,8 +141,6 @@ def edit_community(cname, v, c):
     c.mode = request.form['mode'].strip()
     c.description = request.form['description'].strip()
     c.sidebar = request.form['sidebar'].strip()
-    c.icon_url = request.form['icon_url'].strip()
-    c.banner_url = request.form['banner_url'].strip()
     db.session.commit()
     return redirect('/c/' + cname + '/edit/')
 
@@ -159,7 +158,7 @@ def create_community(v):
     if v.spammer:
         # don't actually create communities for shadowbanned users
         return redirect('/c/' + name + '/edit')
-    c = Community(name = name, title = request.form['title'].strip(), creator_id = v.id, mode = request.form['mode'], description = request.form['description'].strip(), sidebar = request.form['sidebar'].strip(), icon_url = request.form['icon_url'].strip(), banner_url = request.form['banner_url'].strip())
+    c = Community(name = name, title = request.form['title'].strip(), creator_id = v.id, mode = request.form['mode'], description = request.form['description'].strip(), sidebar = request.form['sidebar'].strip())
     if not c:
         abort(500)
     db.session.add(c)
@@ -190,8 +189,10 @@ def submit(v):
             c = Community.get_community(cname)
             if c:
                 if not c.can_submit(v):
+                    db.session.rollback()
                     abort(403)
                 if len(communities) > 1 and c.mode == "private":
+                    db.session.rollback()
                     abort(403)
                 cp = CommunityPost(post_id = p.id, community_id = c.id)
                 if v.spammer:
@@ -214,14 +215,19 @@ def submit_comment(v):
     else:
         db.session.add(comment)
         db.session.flush()
-        cps = comment.post.communities
+        cps = comment.parent.communities if comment.parent else comment.post.communities
+        communities = request.form.getlist('communities[]')
         c_for_url = None
         for cp in cps:
             c = cp.community
+            if not c.name in communities:
+                continue
             if not c.can_comment(v):
-                continue
+                db.session.rollback()
+                abort(403)
             if comment.parent_id != 0 and not comment.parent.communities.filter_by(community_id = c.id).first():
-                continue
+                db.session.rollback()
+                abort(500)
             cc = CommunityComment(comment_id = comment.id, community_id = cp.community_id, post_id = comment.post_id, cpost_id = cp.id)
             if v.spammer:
                 cc.removed = True
@@ -295,4 +301,133 @@ def login():
     else:
         abort(401)
     return redirect(red if red else '/')
+
+@app.route('/api/<pid>/delete', methods = ['POST'])
+@get_login
+@login_required
+def delete_post(pid, v):
+    if pid.startswith('t1_'):
+        p = Post.by_id(int(pid[3:]))
+        if not p:
+            abort(404)
+        if p.author_id != v.id:
+            abort(403)
+        p.delete()
+        db.session.commit()
+        return '', 201
+    elif pid.startswith('t2_'):
+        p = Comment.by_id(int(pid[3:]))
+        if not p:
+            abort(404)
+        if p.author_id != v.id:
+            abort(403)
+        p.delete()
+        db.session.commit()
+        return '', 201
+    abort(400)
+        
+@app.route('/api/<pid>/edit', methods = ['POST'])
+@get_login
+@login_required
+def edit_post(pid, v):
+    import datetime
+    if pid.startswith('t1_'):
+        p = Post.by_id(pid[3:])
+        if not p:
+            abort(404)
+        if p.author_id != v.id:
+            abort(403)
+        p.body = request.form['body']
+        p.title = request.form['title']
+        p.url = request.form['url']
+        p.edited_timestamp = int(datetime.datetime.utcnow().timestamp())
+        db.session.commit()
+        return '', 201
+    elif pid.startswith('t2_'):
+        p = Comment.by_id(pid[3:])
+        if not p:
+            abort(404)
+        if p.author_id != v.id:
+            abort(403)
+        p.body = request.form['body']
+        p.edited_timestamp = int(datetime.datetime.utcnow().timestamp())
+        db.session.commit()
+        return '', 201
+    abort(400)
+
+@app.route('/api/c/<cname>/icon', methods = ['POST'])
+@get_login
+@login_required
+@this_community
+def upload_icon(cname, v, c):
+    if v.admin < 1 and not c.mods.filter_by(user_id = v.id).first():
+        abort(403)
+    if 'image' not in request.files:
+        abort(400)
+    f = request.files['image']
+    if not f or f.filename == '':
+        abort(400)
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'mp4'}
+    if not ('.' in f.filename and f.filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS):
+        abort(415)
+    filename = str(datetime.datetime.utcnow().timestamp()).replace('.', '') + '.' + f.filename.rsplit('.', 1)[1].lower()
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    while os.path.exists(path):
+        filename = str(datetime.datetime.utcnow().timestamp()).replace('.', '') + '.' + f.filename.rsplit('.', 1)[1].lower()
+        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    f.save(path)
+    c.icon_url = '/uploads/' + filename
+    db.session.commit()
+    return '', 201
+
+@app.route('/api/c/<cname>/delete_icon', methods = ['POST'])
+@get_login
+@login_required
+@this_community
+def delete_icon(cname, v, c):
+    if v.admin < 1 and not c.mods.filter_by(user_id = v.id).first():
+        abort(403)
+    c.icon_url = ''
+    db.session.commit()
+    return '', 201
+
+@app.route('/api/c/<cname>/banner', methods = ['POST'])
+@get_login
+@login_required
+@this_community
+def upload_banner(cname, v, c):
+    if v.admin < 1 and not c.mods.filter_by(user_id = v.id).first():
+        abort(403)
+    if 'image' not in request.files:
+        abort(400)
+    f = request.files['image']
+    if not f or f.filename == '':
+        abort(400)
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'mp4'}
+    if not ('.' in f.filename and f.filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS):
+        abort(415)
+    filename = str(datetime.datetime.utcnow().timestamp()).replace('.', '') + '.' + f.filename.rsplit('.', 1)[1].lower()
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    while os.path.exists(path):
+        filename = str(datetime.datetime.utcnow().timestamp()).replace('.', '') + '.' + f.filename.rsplit('.', 1)[1].lower()
+        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    f.save(path)
+    c.banner_url = '/uploads/' + filename
+    db.session.commit()
+    return '', 201
+
+@app.route('/api/c/<cname>/delete_banner', methods = ['POST'])
+@get_login
+@login_required
+@this_community
+def delete_banner(cname, v, c):
+    if v.admin < 1 and not c.mods.filter_by(user_id = v.id).first():
+        abort(403)
+    c.banner_url = ''
+    db.session.commit()
+    return '', 201
+
+@app.route('/uploads/<filename>')
+def send_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 

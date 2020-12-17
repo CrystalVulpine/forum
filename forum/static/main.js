@@ -1,9 +1,3 @@
-function expandReply(e) {
-	e.onclick = null;
-	let comment = e.parentNode.parentNode;
-	comment.innerHTML += '<form id="comment-' + comment.id + '" action="/api/comment" method="post"><input type="text" name="body" placeholder="Comment" class="search-bar" maxlength="10000"><input type="hidden" name="post" value="{{ p.id }}"><input type="hidden" name="parent" value="' + comment.id + '"><input type="hidden" name="community" value="{{ c.id if c else 0 }}"><a onclick="document.getElementById(\'comment-' + comment.id + '\').submit()" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Submit</a><a onclick="document.getElementById(\'comment-' + comment.id + '\').outerHTML = \'\';let rbutton = document.getElementById(' + comment.id + ').getElementsByClassName(\'reply-button\')[0];rbutton.onclick=\"expandReply(this)\"" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Cancel</a></form>';
-}
-
 function updateTimestamps() {
 	let timestamps = document.getElementsByClassName('timestamp');
 	let now = Math.floor(Date.now() / 1000);

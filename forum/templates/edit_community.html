@@ -62,8 +62,6 @@
 				<option value="exclusive"{{ ' selected="true"' if c and c.mode == 'exclusive' else '' }}>Exclusive</option>
 				<option value="archived"{{ ' selected="true"' if c and c.mode == 'archived' else '' }}>Archived</option>
 			</select>
-			<input type="text" name="icon_url" placeholder="Icon URL" class="search-bar" value="{{ c.icon_url if c and c.icon_url else '' }}">
-			<input type="text" name="banner_url" placeholder="Banner URL" class="search-bar" value="{{ c.banner_url if c and c.banner_url else '' }}">
 			<a onclick="document.getElementById('community').submit()" class="submit-button" href="javascript:void(0)" style="margin-right:-15px">Submit</a>
 			{% if "COMMUNITY_CREATED" in get_flashed_messages() %}
 				<p>Your community has been created.</p>
@@ -71,5 +69,17 @@
 				<p>Your community has been updated.</p>
 			{% endif %}
 		</form>
+		{% if c %}
+			<form id="icon" action="/api/c/{{ c.name }}/icon" method="POST" enctype="multipart/form-data"><label for="image">Icon image:</label><input type="file" name="image"><button type="submit">Save</button></form>
+			{% if c.icon_url and c.icon_url != '' %}
+				<p>Current icon:</p>
+				<img src="{{ c.icon_url }}"></img>
+			{% endif %}
+			<form id="banner" action="/api/c/{{ c.name }}/banner" method="POST" enctype="multipart/form-data"><label for="image">Icon image:</label><input type="file" name="image"><button type="submit">Save</button></form>
+			{% if c.banner_url and c.banner_url != '' %}
+				<p>Current banner:</p>
+				<img src="{{ c.banner_url }}"></img>
+			{% endif %}
+		{% endif %}
 	</div>
 </body>

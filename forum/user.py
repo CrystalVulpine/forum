@@ -20,9 +20,11 @@ class User(db.Model):
     creation_date = Column(Integer, default=0)
     email = Column(String, default=None)
     email_verified = Column(Integer, default=0)
-    community_id = Column(Integer, default=0)
+    community_id = Column(Integer, ForeignKey("communities.id"), default=0)
     post_score = Column(Integer, default=0)
     comment_score = Column(Integer, default=0)
+    
+    community = relationship('Community', foreign_keys='User.community_id')
 
     posts=relationship("Post", lazy="dynamic", primaryjoin="Post.author_id==User.id", backref="author")
     comments=relationship("Comment", lazy="dynamic", primaryjoin="Comment.author_id==User.id", backref="author")

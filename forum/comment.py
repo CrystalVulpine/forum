@@ -13,7 +13,7 @@ class Comment(postable.Postable, db.Model):
     parent_id = Column(Integer, ForeignKey("comments.id"))
     author_id = Column(Integer, ForeignKey("users.id"))
     parent=relationship("Comment", remote_side=id)
-    children=relationship("Comment", remote_side=parent_id)
+    children=relationship("Comment", lazy="joined", remote_side=parent_id)
     communities=relationship("CommunityComment", lazy="dynamic", backref="comment")
 
     def __init__(self, **kwargs):
